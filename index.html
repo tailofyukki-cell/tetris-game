@@ -1,0 +1,88 @@
+<!DOCTYPE html>
+<html lang="ja">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>テトリス - Tetris Game</title>
+    <link rel="stylesheet" href="styles.css">
+</head>
+<body>
+    <div class="container">
+        <header>
+            <h1>🎮 テトリス</h1>
+        </header>
+        
+        <div class="game-wrapper">
+            <div class="side-panel left-panel">
+                <div class="panel-section">
+                    <h3>次のブロック</h3>
+                    <canvas id="nextCanvas" width="120" height="120"></canvas>
+                </div>
+                <div class="panel-section">
+                    <h3>操作方法</h3>
+                    <div class="controls-info">
+                        <p>← → : 移動</p>
+                        <p>↑ : 回転</p>
+                        <p>↓ : 高速落下</p>
+                        <p>Space : 即座に落下</p>
+                        <p>P : ポーズ</p>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="game-area">
+                <canvas id="gameCanvas" width="300" height="600"></canvas>
+                <div id="gameOverlay" class="overlay">
+                    <div class="overlay-content">
+                        <h2 id="overlayTitle">テトリス</h2>
+                        <p id="overlayMessage">Startボタンを押してゲームを開始</p>
+                        <button id="startButton" class="btn btn-primary">Start</button>
+                        <button id="retryButton" class="btn btn-primary" style="display:none;">Retry</button>
+                    </div>
+                </div>
+            </div>
+            
+            <div class="side-panel right-panel">
+                <div class="panel-section">
+                    <h3>スコア</h3>
+                    <div class="score-display">
+                        <p class="score-value" id="score">0</p>
+                    </div>
+                </div>
+                <div class="panel-section">
+                    <h3>ライン</h3>
+                    <div class="score-display">
+                        <p class="score-value" id="lines">0</p>
+                    </div>
+                </div>
+                <div class="panel-section">
+                    <h3>レベル</h3>
+                    <div class="score-display">
+                        <p class="score-value" id="level">1</p>
+                    </div>
+                </div>
+                <div class="panel-section">
+                    <h3>サウンド</h3>
+                    <div class="sound-controls">
+                        <label class="switch">
+                            <input type="checkbox" id="bgmToggle" checked>
+                            <span class="slider">BGM</span>
+                        </label>
+                        <label class="switch">
+                            <input type="checkbox" id="sfxToggle" checked>
+                            <span class="slider">効果音</span>
+                        </label>
+                    </div>
+                </div>
+            </div>
+        </div>
+        
+        <footer>
+            <p>&copy; 2025 Tetris Game | MIT License</p>
+        </footer>
+    </div>
+    
+    <script src="main.js"></script>
+</body>
+</html>
+
