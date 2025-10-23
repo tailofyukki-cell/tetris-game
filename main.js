@@ -59,6 +59,7 @@ const sfxToggle = document.getElementById('sfxToggle');
 let audioContext = null;
 let bgmOscillator = null;
 let bgmGain = null;
+let bgmTimeout = null;
 
 // 初期化
 function init() {
@@ -172,7 +173,7 @@ function mergePiece() {
             if (value) {
                 const boardY = currentPiece.y + y;
                 const boardX = currentPiece.x + x;
-                if (boardY >= 0) {
+                if (boardY >= 0 && boardY < ROWS) {
                     board[boardY][boardX] = value;
                 }
             }
@@ -184,18 +185,24 @@ function mergePiece() {
 function clearLines() {
     let linesCleared = 0;
     
+    // 下から上に向かってチェック
     for (let row = ROWS - 1; row >= 0; row--) {
+        // 行が完全に埋まっているかチェック
         if (board[row].every(cell => cell !== 0)) {
+            // 行を削除して上に新しい空行を追加
             board.splice(row, 1);
             board.unshift(Array(COLS).fill(0));
             linesCleared++;
-            row++; // 同じ行を再チェック
+            row++; // 同じ行を再チェック（削除後に下がってくるため）
         }
     }
     
     if (linesCleared > 0) {
         lines += linesCleared;
-        score += [0, 100, 300, 500, 800][linesCleared] * level;
+        // スコア計算（1-4ラインに対応）
+        const lineScores = [0, 100, 300, 500, 800];
+        const scoreValue = linesCleared <= 4 ? lineScores[linesCleared] : 800;
+        score += scoreValue * level;
         level = Math.floor(lines / 10) + 1;
         dropInterval = Math.max(100, 1000 - (level - 1) * 100);
         updateScore();
@@ -212,6 +219,8 @@ function updateScore() {
 
 // ピースを移動
 function move(dir) {
+    if (!currentPiece) return false;
+    
     currentPiece.x += dir;
     if (collide()) {
         currentPiece.x -= dir;
@@ -223,6 +232,8 @@ function move(dir) {
 
 // ピースを回転
 function rotate() {
+    if (!currentPiece) return;
+    
     const originalShape = currentPiece.shape;
     currentPiece.shape = currentPiece.shape[0].map((_, i) =>
         currentPiece.shape.map(row => row[i]).reverse()
@@ -243,15 +254,19 @@ function rotate() {
 
 // ピースを落下
 function drop() {
+    if (!currentPiece) return;
+    
     currentPiece.y++;
     if (collide()) {
         currentPiece.y--;
         mergePiece();
         clearLines();
         
+        // 新しいピースを生成
         currentPiece = nextPiece;
         nextPiece = createPiece();
         
+        // ゲームオーバー判定
         if (collide()) {
             gameOver();
             return;
@@ -265,6 +280,8 @@ function drop() {
 
 // ハードドロップ
 function hardDrop() {
+    if (!currentPiece) return;
+    
     while (!collide()) {
         currentPiece.y++;
     }
@@ -289,6 +306,11 @@ function gameOver() {
 
 // ゲーム開始
 function startGame() {
+    // AudioContextを初期化（ユーザーインタラクション後に作成）
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
+    
     init();
     currentPiece = createPiece();
     nextPiece = createPiece();
@@ -331,9 +353,7 @@ function startBGM() {
         audioContext = new (window.AudioContext || window.webkitAudioContext)();
     }
     
-    if (bgmOscillator) {
-        bgmOscillator.stop();
-    }
+    stopBGM(); // 既存のBGMを停止
     
     bgmGain = audioContext.createGain();
     bgmGain.gain.value = 0.1;
@@ -344,7 +364,10 @@ function startBGM() {
     let noteIndex = 0;
     
     function playNote() {
-        if (!bgmToggle.checked || !gameRunning) return;
+        if (!bgmToggle.checked || !gameRunning) {
+            stopBGM();
+            return;
+        }
         
         bgmOscillator = audioContext.createOscillator();
         bgmOscillator.type = 'square';
@@ -355,7 +378,7 @@ function startBGM() {
         
         noteIndex = (noteIndex + 1) % notes.length;
         
-        setTimeout(playNote, 300);
+        bgmTimeout = setTimeout(playNote, 300);
     }
     
     playNote();
@@ -363,15 +386,27 @@ function startBGM() {
 
 // BGMを停止
 function stopBGM() {
+    if (bgmTimeout) {
+        clearTimeout(bgmTimeout);
+        bgmTimeout = null;
+    }
     if (bgmOscillator) {
-        bgmOscillator.stop();
+        try {
+            bgmOscillator.stop();
+        } catch (e) {
+            // Already stopped
+        }
         bgmOscillator = null;
     }
 }
 
 // 効果音を再生
 function playSFX(type) {
-    if (!sfxToggle.checked || !audioContext) return;
+    if (!sfxToggle.checked) return;
+    
+    if (!audioContext) {
+        audioContext = new (window.AudioContext || window.webkitAudioContext)();
+    }
     
     const oscillator = audioContext.createOscillator();
     const gainNode = audioContext.createGain();
@@ -379,47 +414,57 @@ function playSFX(type) {
     oscillator.connect(gainNode);
     gainNode.connect(audioContext.destination);
     
-    gainNode.gain.value = 0.1;
+    gainNode.gain.value = 0.15;
     
     switch (type) {
         case 'move':
             oscillator.frequency.value = 200;
             oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.05);
+            oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.05);
             break;
         case 'rotate':
             oscillator.frequency.value = 400;
             oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.08);
+            oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.08);
             break;
         case 'drop':
             oscillator.frequency.value = 150;
             oscillator.type = 'square';
+            gainNode.gain.setValueAtTime(0.15, audioContext.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.1);
+            oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.1);
             break;
         case 'clear':
             oscillator.frequency.value = 800;
             oscillator.type = 'sine';
+            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.3);
+            oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.3);
             break;
         case 'gameover':
             oscillator.frequency.value = 100;
             oscillator.type = 'sawtooth';
+            gainNode.gain.setValueAtTime(0.2, audioContext.currentTime);
             gainNode.gain.exponentialRampToValueAtTime(0.01, audioContext.currentTime + 0.5);
+            oscillator.start(audioContext.currentTime);
             oscillator.stop(audioContext.currentTime + 0.5);
             break;
     }
-    
-    oscillator.start();
 }
 
 // キーボードイベント
 document.addEventListener('keydown', (e) => {
-    if (!gameRunning || gamePaused) {
+    if (!gameRunning) return;
+    
+    if (gamePaused) {
         if (e.key === 'p' || e.key === 'P') {
             togglePause();
         }
